@@ -18,6 +18,8 @@ import { User } from './user/entities/user.entity';
         DB_USERNAME: Joi.string().required(), // DB 사용자 이름은 필수값이다.
         DB_PASSWORD: Joi.string().required(), // DB 비밀번호는 필수값이다.
         HASH_ROUNDS: Joi.number().required(),
+        ACCESS_TOKEN_SECRET: Joi.string().required(),
+        REFRESH_TOKEN_SECRET: Joi.string().required(),
       }),
     }),
     // TypeOrmModule.forRootAsync를 사용하는 이유는 ConfigService와 같은 비동기 서비스로부터 설정을 동적으로 가져오기 위함이다.

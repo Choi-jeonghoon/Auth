@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from 'src/user/entities/user.entity';
+import { Role, User } from 'src/user/entities/user.entity';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
@@ -23,7 +23,11 @@ export class AuthService {
       throw new NotFoundException('토큰 포멧이 잘못되었다1.');
     }
 
-    const [, token] = basicSplit;
+    const [basic, token] = basicSplit;
+
+    if (basic.toLowerCase() !== 'basic') {
+      throw new NotFoundException('토큰 포멧이 잘못되었다2.');
+    }
 
     //2) 추출한 토큰을 base64 디코딩해서 이메일과 비밀번호로 나눈다.
     const decoded = Buffer.from(token, 'base64').toString('utf-8');
@@ -32,7 +36,7 @@ export class AuthService {
     const tokenSplit = decoded.split(':');
 
     if (tokenSplit.length !== 2) {
-      throw new NotFoundException('토큰 포멧이 잘못되었다2.');
+      throw new NotFoundException('토큰 포멧이 잘못되었다3.');
     }
 
     const [email, password] = tokenSplit;
@@ -41,6 +45,39 @@ export class AuthService {
       email,
       password,
     };
+  }
+
+  //accessToken 재발급 하는 엔드포인트
+
+  async parseBearerToken(rawToken: string, isRefreshToken: boolean) {
+    const basicSplit = rawToken.split(' ');
+
+    //basicSplit 정상적으로왔다면 ['Basic','$token']
+    if (basicSplit.length !== 2) {
+      throw new NotFoundException('토큰 포멧이 잘못되었다4.');
+    }
+
+    const [bearer, token] = basicSplit;
+
+    if (bearer.toLowerCase() !== 'bearer') {
+      throw new NotFoundException('토큰 포멧이 잘못되었다5.');
+    }
+
+    const paylode = await this.jwtService.verifyAsync(token, {
+      secret: this.configService.get<string>('REFRESH_TOKEN_SECRET'),
+    });
+
+    if (isRefreshToken) {
+      if (paylode.type !== 'refresh') {
+        throw new NotFoundException('Refresh 토큰을 입력해주세요!');
+      }
+    } else {
+      if (paylode.type !== 'access') {
+        throw new NotFoundException('access 토큰을 입력해주세요!');
+      }
+    }
+
+    return paylode;
   }
 
   //rawToken -> "Basic Stoken"
@@ -92,7 +129,7 @@ export class AuthService {
   }
 
   //ture 면 refreshToken  false 면 accessToken
-  async issueToken(user: User, isRefreshToken: boolean) {
+  async issueToken(user: { id: number; role: Role }, isRefreshToken: boolean) {
     const refreshTokenSecret = this.configService.get<string>(
       'REFRESH_TOKEN_SECRET',
     );

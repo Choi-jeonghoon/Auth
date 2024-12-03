@@ -1,10 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Role, User } from 'src/user/entities/user.entity';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { envVariablekeys } from 'src/common/const/env.const';
 
 @Injectable()
 export class AuthService {
@@ -63,21 +68,27 @@ export class AuthService {
       throw new NotFoundException('토큰 포멧이 잘못되었다5.');
     }
 
-    const paylode = await this.jwtService.verifyAsync(token, {
-      secret: this.configService.get<string>('REFRESH_TOKEN_SECRET'),
-    });
+    // 리프레쉬 토큰이 이미 만료가 된상태를 처리해줘야된다.
+    try {
+      const paylode = await this.jwtService.verifyAsync(token, {
+        secret: this.configService.get<string>(
+          envVariablekeys.refreshTokenSecret,
+        ),
+      });
+      if (isRefreshToken) {
+        if (paylode.type !== 'refresh') {
+          throw new NotFoundException('Refresh 토큰을 입력해주세요!');
+        }
+      } else {
+        if (paylode.type !== 'access') {
+          throw new NotFoundException('access 토큰을 입력해주세요!');
+        }
+      }
 
-    if (isRefreshToken) {
-      if (paylode.type !== 'refresh') {
-        throw new NotFoundException('Refresh 토큰을 입력해주세요!');
-      }
-    } else {
-      if (paylode.type !== 'access') {
-        throw new NotFoundException('access 토큰을 입력해주세요!');
-      }
+      return paylode;
+    } catch (e) {
+      throw new UnauthorizedException(' 토큰이 만료되었습니다.', e);
     }
-
-    return paylode;
   }
 
   //rawToken -> "Basic Stoken"
@@ -95,7 +106,7 @@ export class AuthService {
 
     const hash = await bcrypt.hash(
       password,
-      this.configService.get<number>('HASH_ROUNDS'),
+      this.configService.get<number>(envVariablekeys.hasRounds),
     );
 
     await this.userRepository.save({
@@ -131,10 +142,10 @@ export class AuthService {
   //ture 면 refreshToken  false 면 accessToken
   async issueToken(user: { id: number; role: Role }, isRefreshToken: boolean) {
     const refreshTokenSecret = this.configService.get<string>(
-      'REFRESH_TOKEN_SECRET',
+      envVariablekeys.refreshTokenSecret,
     );
     const accessTokenSecret = this.configService.get<string>(
-      'ACCESS_TOKEN_SECRET',
+      envVariablekeys.accessTokenSecret,
     );
     return this.jwtService.signAsync(
       {

@@ -49,10 +49,19 @@ export class AuthController {
    */
 
   //accessToken 재발급 하는 엔드포인트 ( refreshToken 이 있어야 된다.)
+  // @Post('Token/access')
+  // async rotateAccessToken(@Headers('authorization') token: string) {
+  //   const payload = await this.authService.parseBearerToken(token, true);
+  //   return { accessToken: await this.authService.issueToken(payload, false) };
+  // }
+
+  /**
+   * 미들웨어로 토큰 부분을 빼놨기 때문에 아애롸같이 수정을 진행한다.
+   *
+   */
   @Post('Token/access')
-  async rotateAccessToken(@Headers('authorization') token: string) {
-    const payload = await this.authService.parseBearerToken(token, true);
-    return { accessToken: await this.authService.issueToken(payload, false) };
+  async rotateAccessToken(@Request() req) {
+    return { accessToken: await this.authService.issueToken(req.user, false) };
   }
 
   //아래는 passport 관련 엔드포인트

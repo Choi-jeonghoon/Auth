@@ -1,4 +1,9 @@
-import { Module } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
@@ -6,6 +11,7 @@ import { UserModule } from './user/user.module';
 import * as Joi from 'joi';
 import { User } from './user/entities/user.entity';
 import { envVariablekeys } from './common/const/env.const';
+import { BearerTokenMiddleware } from './auth/middleware/bearer-token.middleware';
 
 @Module({
   imports: [
@@ -43,7 +49,21 @@ import { envVariablekeys } from './common/const/env.const';
     UserModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(BearerTokenMiddleware)
+      .exclude(
+        /**
+         * 아래 두 엔드포인트에서는 bearer 토큰이 아닌 basic을 사용한다.
+         * 그러므로 해당 엔드포인트는 제외를 해야된다.
+         */
+        { path: 'auth/login', method: RequestMethod.POST },
+        { path: 'auth/register', method: RequestMethod.POST },
+      )
+      .forRoutes('*'); //모든곳에서 사용하게 하기위함
+  }
+}
 
 /*@MEMO
 비동기 설정: ConfigModule을 통해 환경변수나 설정값을 비동기적으로 불러온 후, TypeOrmModule이 해당 설정값을 기반으로 데이터베이스에 연결할 수 있도록 비동기로 처리.

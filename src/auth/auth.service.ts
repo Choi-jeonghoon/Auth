@@ -72,7 +72,9 @@ export class AuthService {
     try {
       const paylode = await this.jwtService.verifyAsync(token, {
         secret: this.configService.get<string>(
-          envVariablekeys.refreshTokenSecret,
+          isRefreshToken
+            ? envVariablekeys.refreshTokenSecret
+            : envVariablekeys.accessTokenSecret,
         ),
       });
       if (isRefreshToken) {
